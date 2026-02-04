@@ -6,20 +6,21 @@ __all__ = [
     "run_cbs",
     "SingleBatchCB",
     "TrainCB",
-    "tqdmCB",
+    "TqdmCB",
     "with_cbs",
     "Learner",
     "TrainLearner",
 ]
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from operator import attrgetter
-from typing import Callable
 
-from tinygrad import Tensor
 from tinygrad.engine.jit import TinyJit
 from tinygrad.helpers import tqdm
 from tinygrad.nn import optim, state
+from tinygrad.tensor import Tensor
+
+from loader import DataLoaders
 
 
 class CancelFitException(Exception):
@@ -38,7 +39,7 @@ class Callback:
     order = 0
 
 
-def run_cbs(cbs, method_nm, learn=None):
+def run_cbs(cbs: Sequence["Callback"], method_nm: str, learn: "Learner | None" = None) -> None:
     for cb in sorted(cbs, key=attrgetter("order")):
         method = getattr(cb, method_nm, None)
         if method is not None:
@@ -52,97 +53,37 @@ class SingleBatchCB(Callback):
         raise CancelFitException()
 
 
-# def_device = Tensor([0]).device
+MetricFunc = Callable[[Tensor, Tensor], Tensor]
 
 
-# def to_device(x, device=def_device):
-#     if isinstance(x, Tensor):
-#         return x.to(device)
-#     if isinstance(x, Mapping):
-#         return {k: to_device(v, device) for k, v in x.items()}
-#     if isinstance(x, list):
-#         return [to_device(o, device) for o in x]
-#     if isinstance(x, tuple):
-#         return tuple(to_device(o, device) for o in x)
-#     return x
+class MetricsCB(Callback):
+    def __init__(self, *ms: MetricFunc, **metrics: MetricFunc) -> None:
+        from copy import copy
 
+        for o in ms:
+            metrics[type(o).__name__] = o
+        self.metrics: dict[str, MetricFunc] = metrics
+        self.all_metrics: dict[str, MetricFunc] = copy(metrics)
+        self.metric_values: dict[str, list[float]] = {}
 
-# class Mean:
-#     def __init__(self):
-#         self.reset()
+    def before_epoch(self, learn: "Learner") -> None:
+        self.metric_values = {name: [] for name in self.all_metrics}
 
-#     def reset(self):
-#         self.total = 0.0
-#         self.count = 0.0
+    def after_epoch(self, learn: "Learner") -> None:
+        parts = []
+        for m_name, values in self.metric_values.items():
+            if not values:
+                continue
+            mean_value = sum(values) / len(values)
+            parts.append(f"{m_name}: {mean_value:.4f}")
+        if parts:
+            print(f"{self.__class__.__name__} - {', '.join(parts)}")
 
-#     def update(self, value, weight=1.0):
-#         self.total += _to_float(value) * weight
-#         self.count += weight
-
-#     def compute(self):
-#         return self.total / self.count if self.count else math.nan
-
-
-# class MulticlassAccuracy:
-#     def __init__(self):
-#         self.reset()
-
-#     def reset(self):
-#         self.correct = 0
-#         self.total = 0
-
-#     def update(self, preds, target):
-#         p = _to_numpy(preds)
-#         t = _to_numpy(target)
-#         if p.ndim > 1:
-#             p = p.argmax(axis=-1)
-#         if t.ndim > 1:
-#             t = t.argmax(axis=-1)
-#         p = p.reshape(-1)
-#         t = t.reshape(-1)
-#         self.correct += int((p == t).sum())
-#         self.total += int(t.size)
-
-#     def compute(self):
-#         return self.correct / self.total if self.total else math.nan
-
-
-# class MetricsCB(Callback):
-#     def __init__(self, *ms, **metrics):
-#         for o in ms:
-#             metrics[type(o).__name__] = o
-#         self.metrics = metrics
-#         self.all_metrics = copy(metrics)
-#         self.all_metrics["loss"] = self.loss = Mean()
-
-#     def _log(self, d):
-#         print(d)
-
-#     def before_fit(self, learn):
-#         learn.metrics = self
-
-#     def before_epoch(self, learn):
-#         [o.reset() for o in self.all_metrics.values()]
-
-#     def after_epoch(self, learn):
-#         log = {k: f"{v.compute():.3f}" for k, v in self.all_metrics.items()}
-#         log["epoch"] = learn.epoch
-#         log["train"] = "train" if learn.training else "eval"
-#         self._log(log)
-
-#     def after_batch(self, learn):
-#         x, y, *_ = to_cpu(learn.batch)
-#         for m in self.metrics.values():
-#             m.update(to_cpu(learn.preds), y)
-#         self.loss.update(to_cpu(learn.loss), weight=len(x))
-
-
-# class DeviceCB(Callback):
-#     def __init__(self, device=def_device):
-#         self.device = device
-
-#     def before_batch(self, learn):
-#         learn.batch = to_device(learn.batch, device=self.device)
+    def after_batch(self, learn: "Learner") -> None:
+        batch = learn.batch[-1]
+        for m_name, m_func in self.all_metrics.items():
+            value = m_func(learn.preds, batch).realize().item()
+            self.metric_values[m_name].append(float(value))
 
 
 class TrainCB(Callback):
@@ -165,15 +106,15 @@ class TrainCB(Callback):
         learn.opt.zero_grad()
 
 
-class tqdmCB(Callback):
-    # order = MetricsCB.order + 1
+class TqdmCB(Callback):
+    order = MetricsCB.order + 1
 
     def __init__(self, plot=False):
         self.plot = plot
 
     def before_epoch(self, learn):
         total = len(learn.dl) if hasattr(learn.dl, "__len__") else None
-        learn.dl = tqdm(learn.dl, desc="", total=total)
+        learn.dl = tqdm(learn.dl, total=total)
 
     def after_batch(self, learn):
         if hasattr(learn.dl, "set_description"):
@@ -202,10 +143,10 @@ class Learner:
     def __init__(
         self,
         model,
-        dls,
+        dls: DataLoaders,
         loss_func: Callable[[Tensor, Tensor], Tensor],
         lr=0.1,
-        cbs: Sequence[Callable[[str], None]] | None = None,
+        cbs: Sequence["Callback"] | None = None,
         opt_func=optim.SGD,
         n_inputs=1,
     ):
@@ -214,7 +155,7 @@ class Learner:
         self.loss_func = loss_func
         self.lr = lr
         self.opt_func = opt_func
-        self.cbs = [] if cbs is None else list(cbs)
+        self.cbs: list[Callback] = [] if cbs is None else list(cbs)
         self.n_inputs = n_inputs
 
     @TinyJit
@@ -236,7 +177,7 @@ class Learner:
 
     @with_cbs("batch")
     def _one_batch(self):
-        # We need to reasign to self since we are jitting steps
+        # We need to reassign since we are jitting steps
         if self.training:
             self.loss, self.preds = self._train_step(self.batch)
         else:
@@ -263,8 +204,7 @@ class Learner:
     def fit(self, n_epochs=1, train=True, valid=True):
         self.n_epochs = n_epochs
         self.epochs = range(n_epochs)
-        if self.opt_func:
-            self.opt = self.opt_func(state.get_parameters(self.model), lr=self.lr)
+        self.opt = self.opt_func(state.get_parameters(self.model), lr=self.lr)
         self._fit(train, valid)
 
     def callback(self, method_nm):

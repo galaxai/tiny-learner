@@ -1,3 +1,5 @@
+__all__ = ["DataLoaders", "SimpleDataLoader", "collate_dict", "default_collate", "pil_to_tensor"]
+
 import random
 from collections.abc import Mapping
 from operator import itemgetter
@@ -91,7 +93,7 @@ class DataLoaders:
         self.train, self.valid = dls[:2]
 
     def get_dls(train_ds, valid_ds, bs, **kwargs):
-        return (SimpleDataLoader(train_ds, batch_size=bs, shuffle=True, **kwargs), SimpleDataLoader(valid_ds, batch_size=bs * 2, **kwargs))
+        return (SimpleDataLoader(train_ds, batch_size=bs, shuffle=True, **kwargs), SimpleDataLoader(valid_ds, batch_size=bs, **kwargs))
 
     @classmethod
     def from_dd(cls, dd, batch_size, as_tuple=True, **kwargs):

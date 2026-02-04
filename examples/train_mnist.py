@@ -1,7 +1,8 @@
 from datasets import load_dataset
 from tinygrad import Tensor, nn
+from tinygrad.engine.jit import TinyJit
 
-from learner import Learner, TrainCB, tqdmCB
+from learner import Learner, MetricsCB, TqdmCB, TrainCB
 from loader import DataLoaders, pil_to_tensor
 
 
@@ -34,9 +35,14 @@ def main():
 
     dls = DataLoaders.from_dd(tds, BATCH_SIZE)
     model = TinyMLP()
-    cbs = [TrainCB(), tqdmCB()]
+
+    @TinyJit
+    def accuracy(preds, y):
+        return (preds.argmax(axis=1) == y).mean()
+
+    cbs = [TrainCB(), TqdmCB(), MetricsCB(accuracy=accuracy)]
     learn = Learner(model, dls, loss_func=loss_func, lr=LR, cbs=cbs)
-    learn.fit(2)
+    learn.fit(1)
 
 
 if __name__ == "__main__":
