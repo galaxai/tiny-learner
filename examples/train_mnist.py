@@ -1,9 +1,10 @@
+import numpy as np
 from datasets import load_dataset
 from tinygrad import Tensor, nn
 from tinygrad.engine.jit import TinyJit
 
 from learner import Learner, MetricsCB, TqdmCB, TrainCB
-from loader import DataLoaders, pil_to_tensor
+from loader import DataLoaders
 
 
 class TinyMLP:
@@ -15,10 +16,9 @@ class TinyMLP:
         return self.l2(self.l1(x).relu())
 
 
-def transforms(s: Tensor):
-    x = "image"
-    s[x] = [pil_to_tensor(o, pixel_format="Grayscale").flatten() for o in s[x]]
-    return s
+def transforms(batch: dict[str, np.ndarray]):
+    x, y = "image", "label"
+    return Tensor(batch[x]).reshape(-1, 28 * 28), Tensor(batch[y])
 
 
 def loss_func(preds, y):
@@ -31,9 +31,9 @@ LR = 1e-3
 
 def main():
     ds = load_dataset("zalando-datasets/fashion_mnist")
-    tds = ds.with_transform(transforms)
+    ds = ds.with_format("numpy")
 
-    dls = DataLoaders.from_dd(tds, BATCH_SIZE)
+    dls = DataLoaders.from_dd(ds, BATCH_SIZE, transform=transforms)
     model = TinyMLP()
 
     @TinyJit
@@ -42,7 +42,7 @@ def main():
 
     cbs = [TrainCB(), TqdmCB(), MetricsCB(accuracy=accuracy)]
     learn = Learner(model, dls, loss_func=loss_func, lr=LR, cbs=cbs)
-    learn.fit(1)
+    learn.fit(5)
 
 
 if __name__ == "__main__":
