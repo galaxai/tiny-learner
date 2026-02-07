@@ -11,27 +11,22 @@ class SimpleDataLoader:
         transform=None,
         collate_fn=None,
     ):
-
         self.dataset = dataset  # Note it is recommended to use with_format("numpy") for better performance
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
         self.transform = transform
 
-    """
-    Iter should return a batch of data
-
-    """
-
     def __iter__(self):
+        dataset = self.dataset
         if self.shuffle:
-            self.dataset = self.dataset.shuffle()
+            dataset = dataset.shuffle()
 
         i = 0
-        while i < len(self.dataset):
-            if self.drop_last and i + self.batch_size > len(self.dataset):
+        while i < len(dataset):
+            if self.drop_last and i + self.batch_size > len(dataset):
                 break
-            batch = self.dataset[i : i + self.batch_size]
+            batch = dataset[i : i + self.batch_size]
             if self.transform:
                 batch = self.transform(batch)
             yield batch

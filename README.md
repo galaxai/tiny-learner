@@ -28,7 +28,7 @@ MetricsCB - accuracy: 0.7532
 
 ## What's included
 - `learner.py`: minimal Learner with callback hooks, MetricsCB, TqdmCB, and TinyJit train/valid steps.
-- `loader.py`: SimpleDataLoader, DataLoaders, and collate helpers for HF datasets and PIL images.
+- `loader.py`: SimpleDataLoader and DataLoaders for HF datasets.
 
 ### Future
 - [x] Fast loader
