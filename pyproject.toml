@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "datasets>=4.5.0",
+    "pillow>=12.1.0",
     "tinygrad>=0.12.0",
 ]
 
