@@ -40,11 +40,12 @@ class DataLoaders:
     def __init__(self, *dls):
         self.train, self.valid = dls[:2]
 
+    @staticmethod
     def get_dls(train_ds, valid_ds, bs, **kwargs):
         return (SimpleDataLoader(train_ds, batch_size=bs, shuffle=True, **kwargs), SimpleDataLoader(valid_ds, batch_size=bs, **kwargs))
 
     @classmethod
-    def from_dd(cls, dd, batch_size, as_tuple=True, **kwargs):
+    def from_dd(cls, dd, batch_size, **kwargs):
         """
         Create DataLoaders from a dictionary of datasets.
         """
