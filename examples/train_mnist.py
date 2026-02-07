@@ -42,7 +42,7 @@ def main():
 
     cbs = [TrainCB(), TqdmCB(), MetricsCB(accuracy=accuracy)]
     learn = Learner(model, dls, loss_func=loss_func, lr=LR, cbs=cbs)
-    learn.fit(5)
+    learn.fit(1)
 
 
 if __name__ == "__main__":
