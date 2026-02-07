@@ -35,6 +35,13 @@ class CancelEpochException(Exception):
     pass
 
 
+CANCEL_EXCEPTIONS = {
+    "fit": CancelFitException,
+    "batch": CancelBatchException,
+    "epoch": CancelEpochException,
+}
+
+
 class Callback:
     order = 0
 
@@ -80,9 +87,9 @@ class MetricsCB(Callback):
             print(f"{self.__class__.__name__} - {', '.join(parts)}")
 
     def after_batch(self, learn: "Learner") -> None:
-        batch = learn.batch[-1]
+        target = learn.batch[learn.n_inputs]
         for m_name, m_func in self.all_metrics.items():
-            value = m_func(learn.preds, batch).realize().item()
+            value = m_func(learn.preds, target).realize().item()
             self.metric_values[m_name].append(float(value))
 
 
@@ -123,7 +130,10 @@ class TqdmCB(Callback):
 
 class with_cbs:
     def __init__(self, nm):
+        if nm not in CANCEL_EXCEPTIONS:
+            raise ValueError(f"Unknown callback stage: {nm}")
         self.nm = nm
+        self.cancel_exc = CANCEL_EXCEPTIONS[nm]
 
     def __call__(self, f):
         def _f(o, *args, **kwargs):
@@ -131,8 +141,8 @@ class with_cbs:
                 o.callback(f"before_{self.nm}")
                 f(o, *args, **kwargs)
                 o.callback(f"after_{self.nm}")
-            except globals()[f"Cancel{self.nm.title()}Exception"]:
-                pass
+            except self.cancel_exc:
+                return
             finally:
                 o.callback(f"cleanup_{self.nm}")
 
