@@ -14,6 +14,9 @@ dependencies = [
     "tinygrad>=0.12.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
 [tool.ruff]
 line-length = 150
 [tool.ruff.lint]
