@@ -9,7 +9,6 @@ class SimpleDataLoader:
         shuffle=False,
         drop_last=True,
         transform=None,
-        collate_fn=None,
     ):
         self.dataset = dataset  # Note it is recommended to use with_format("numpy") for better performance
         self.batch_size = batch_size
