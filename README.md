@@ -20,19 +20,18 @@ uv run examples/train_mnist.py
 ```
 ```bash
 >>> uv run examples/train_mnist.py
-
-Epoch:0 - Train Loss: 0.699: 100%|████████████████████████████████████████████████| 468/468 [00:35<00:00, 13.14it/s]
-MetricsCB - accuracy: 0.6882
-Epoch:0 - Valid Loss: 0.729: 100%|██████████████████████████████████████████████████| 78/78 [00:05<00:00, 13.92it/s]
-MetricsCB - accuracy: 0.7362
+Epoch:0 - Train Loss: 0.816: 100%|████████████████████████| 468/468 [00:04<00:00, 100.21it/s]
+MetricsCB - accuracy: 0.7023
+Epoch:0 - Valid Loss: 0.678: 100%|██████████████████████████| 78/78 [00:00<00:00, 132.05it/s]
+MetricsCB - accuracy: 0.7532
 ```
 
 ## What's included
 - `learner.py`: minimal Learner with callback hooks, MetricsCB, TqdmCB, and TinyJit train/valid steps.
-- `loader.py`: SimpleDataLoader, DataLoaders, and collate helpers for HF datasets and PIL images.
+- `loader.py`: SimpleDataLoader and DataLoaders for HF datasets.
 
 ### Future
-- [ ] Fast loader
+- [x] Fast loader
 - [ ] Loader supports num_workers
 
 ## License

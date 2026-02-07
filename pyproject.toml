@@ -7,10 +7,9 @@ name = "tiny-learner"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11" # This matches tinygrad
+requires-python = ">=3.11"
 dependencies = [
     "datasets>=4.5.0",
-    "pillow>=12.1.0",
     "tinygrad>=0.12.0",
 ]
 
