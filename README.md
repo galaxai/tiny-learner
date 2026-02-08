@@ -34,5 +34,8 @@ MetricsCB - accuracy: 0.7532
 - [x] Fast loader
 - [ ] Loader supports num_workers
 
+### Testing
+> Tests are written 100% with AI, if you are interested in contributing, please open an pull request.
+
 ## License
 See `LICENSE`.
