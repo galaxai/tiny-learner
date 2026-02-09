@@ -7,41 +7,64 @@ from tinygrad.engine.jit import TinyJit
 from tinygrad.tensor import Tensor
 
 
-class InMemorySampler:
+class Sampler:
+    """Base sampler that yields tensor batches from a data loader."""
+
     def __init__(self, dl: "SimpleDataLoader"):
+        self.data_len = len(dl.dataset)
+        self.batch_size = dl.batch_size
+        self.drop_last = dl.drop_last
+
+    def __iter__(self) -> Iterator[tuple[Tensor, ...]]:
+        raise NotImplementedError("Sampler.__iter__ must be implemented")
+
+    def __len__(self) -> int:
+        full = self.data_len // self.batch_size
+        return full if self.drop_last else full + (self.data_len % self.batch_size != 0)
+
+
+class InMemorySampler(Sampler):
+    """Randomly sample batches from an in-memory dataset"""
+
+    def __init__(self, dl: "SimpleDataLoader"):
+        super().__init__(dl)
         if dl.transform:
             self.data = dl.transform(dl.dataset[:])
         else:
             self.data = dl.dataset[:]
         self.batch_size = dl.batch_size
-        self.data_length = len(dl.dataset)
-
-        self.batch_size = dl.batch_size
-        self.data_length = len(dl.dataset)
 
     @TinyJit
     def sample(self, _: int) -> tuple[Tensor, ...]:
-        samples = Tensor.randint(self.batch_size, high=self.data_length)
+        # This will miss some data samples due to the randomness
+        samples = Tensor.randint(self.batch_size, high=self.data_len)
         return tuple(col[samples] for col in self.data)
 
+    def __iter__(self) -> Iterator[tuple[Tensor, ...]]:
+        for i in range(0, self.__len__()):
+            yield self.sample(i)
 
-class BatchSampler:
+
+class BatchSampler(Sampler):
+    """Yield sequential batches with optional shuffle and transform."""
+
     def __init__(self, dl: "SimpleDataLoader"):
-        if dl.shuffle:
-            self.dataset = dl.dataset.shuffle()
-        else:
-            self.dataset = dl.dataset
-
-        self.batch_size = dl.batch_size
-        self.data_length = len(dl.dataset)
+        super().__init__(dl)
+        self.shuffle = dl.shuffle
+        self.dataset = dl.dataset
         self.transform = dl.transform
 
-    # Find a way to jit this method
-    def sample(self, i: int) -> tuple[Tensor, ...]:
-        batch = self.dataset[i : i + self.batch_size]
-        if self.transform:
-            batch = self.transform(batch)
-        return batch
+    def __iter__(self):
+        self.data = self.dataset
+        if self.shuffle:
+            self.data = self.dataset.shuffle()
+
+        for i in range(0, self.__len__()):
+            i *= self.batch_size
+            batch = self.data[i : i + self.batch_size]
+            if self.transform:
+                batch = self.transform(batch)
+            yield batch
 
 
 class SimpleDataLoader:
@@ -67,16 +90,11 @@ class SimpleDataLoader:
             self.sampler = BatchSampler(self)
 
     def __iter__(self) -> Iterator[tuple[Tensor, ...]]:
-        i = 0
-        while i < len(self.dataset):
-            if self.drop_last and i + self.batch_size > len(self.dataset):
-                break
-            yield self.sampler.sample(i)
-            i += self.batch_size
+        for batch in iter(self.sampler):
+            yield batch
 
     def __len__(self) -> int:
-        full = len(self.dataset) // self.batch_size
-        return full if self.drop_last else full + (len(self.dataset) % self.batch_size != 0)
+        return self.sampler.__len__()
 
 
 class DataLoaders:
