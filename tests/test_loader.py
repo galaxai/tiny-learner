@@ -6,7 +6,7 @@ from loader import DataLoaders, SimpleDataLoader
 
 
 def _batch_values(batch):
-    return (batch[0].tolist(), batch[1].tolist())
+    return tuple(col.tolist() for col in batch)
 
 
 def _reset_sampler_jit(dl):

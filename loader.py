@@ -20,9 +20,9 @@ class InMemorySampler:
         self.data_length = len(dl.dataset)
 
     @TinyJit
-    def sample(self, _: int) -> tuple[Tensor, Tensor]:
+    def sample(self, _: int) -> tuple[Tensor, ...]:
         samples = Tensor.randint(self.batch_size, high=self.data_length)
-        return (self.data[0][samples], self.data[1][samples])
+        return tuple(col[samples] for col in self.data)
 
 
 class BatchSampler:
@@ -36,7 +36,8 @@ class BatchSampler:
         self.data_length = len(dl.dataset)
         self.transform = dl.transform
 
-    def sample(self, i: int) -> tuple[Tensor, Tensor]:
+    # Find a way to jit this method
+    def sample(self, i: int) -> tuple[Tensor, ...]:
         batch = self.dataset[i : i + self.batch_size]
         if self.transform:
             batch = self.transform(batch)
@@ -65,7 +66,7 @@ class SimpleDataLoader:
         else:
             self.sampler = BatchSampler(self)
 
-    def __iter__(self) -> Iterator[tuple[Tensor, Tensor]]:
+    def __iter__(self) -> Iterator[tuple[Tensor, ...]]:
         i = 0
         while i < len(self.dataset):
             if self.drop_last and i + self.batch_size > len(self.dataset):
