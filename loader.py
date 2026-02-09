@@ -1,7 +1,7 @@
 __all__ = ["DataLoaders", "SimpleDataLoader"]
 
 
-from typing import Iterator, cast
+from typing import Iterator
 
 from tinygrad.engine.jit import TinyJit
 from tinygrad.tensor import Tensor
@@ -41,7 +41,7 @@ class InMemorySampler(Sampler):
 
     def __iter__(self) -> Iterator[tuple[Tensor, ...]]:
         for _ in range(len(self)):
-            yield cast(tuple[Tensor, ...], self.sample())
+            yield self.sample()
 
 
 class BatchSampler(Sampler):
