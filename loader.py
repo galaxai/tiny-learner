@@ -1,7 +1,7 @@
 __all__ = ["DataLoaders", "SimpleDataLoader"]
 
 
-from typing import Iterator
+from typing import Iterator, cast
 
 from tinygrad.engine.jit import TinyJit
 from tinygrad.tensor import Tensor
@@ -32,17 +32,16 @@ class InMemorySampler(Sampler):
             self.data = dl.transform(dl.dataset[:])
         else:
             self.data = dl.dataset[:]
-        self.batch_size = dl.batch_size
 
     @TinyJit
-    def sample(self, _: int) -> tuple[Tensor, ...]:
+    def sample(self) -> tuple[Tensor, ...]:
         # This will miss some data samples due to the randomness
         samples = Tensor.randint(self.batch_size, high=self.data_len)
         return tuple(col[samples] for col in self.data)
 
     def __iter__(self) -> Iterator[tuple[Tensor, ...]]:
-        for i in range(0, self.__len__()):
-            yield self.sample(i)
+        for _ in range(len(self)):
+            yield cast(tuple[Tensor, ...], self.sample())
 
 
 class BatchSampler(Sampler):
@@ -59,9 +58,9 @@ class BatchSampler(Sampler):
         if self.shuffle:
             self.data = self.dataset.shuffle()
 
-        for i in range(0, self.__len__()):
-            i *= self.batch_size
-            batch = self.data[i : i + self.batch_size]
+        for i in range(len(self)):
+            start = i * self.batch_size
+            batch = self.data[start : start + self.batch_size]
             if self.transform:
                 batch = self.transform(batch)
             yield batch
@@ -94,7 +93,7 @@ class SimpleDataLoader:
             yield batch
 
     def __len__(self) -> int:
-        return self.sampler.__len__()
+        return len(self.sampler)
 
 
 class DataLoaders:
