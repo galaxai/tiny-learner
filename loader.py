@@ -1,6 +1,48 @@
 __all__ = ["DataLoaders", "SimpleDataLoader"]
 
 
+from typing import Iterator
+
+from tinygrad.engine.jit import TinyJit
+from tinygrad.tensor import Tensor
+
+
+class InMemorySampler:
+    def __init__(self, dl: "SimpleDataLoader"):
+        if dl.transform:
+            self.data = dl.transform(dl.dataset[:])
+        else:
+            self.data = dl.dataset[:]
+        self.batch_size = dl.batch_size
+        self.data_length = len(dl.dataset)
+
+        self.batch_size = dl.batch_size
+        self.data_length = len(dl.dataset)
+
+    @TinyJit
+    def sample(self, _: int) -> tuple[Tensor, Tensor]:
+        samples = Tensor.randint(self.batch_size, high=self.data_length)
+        return (self.data[0][samples], self.data[1][samples])
+
+
+class BatchSampler:
+    def __init__(self, dl: "SimpleDataLoader"):
+        if dl.shuffle:
+            self.dataset = dl.dataset.shuffle()
+        else:
+            self.dataset = dl.dataset
+
+        self.batch_size = dl.batch_size
+        self.data_length = len(dl.dataset)
+        self.transform = dl.transform
+
+    def sample(self, i: int) -> tuple[Tensor, Tensor]:
+        batch = self.dataset[i : i + self.batch_size]
+        if self.transform:
+            batch = self.transform(batch)
+        return batch
+
+
 class SimpleDataLoader:
     def __init__(
         self,
@@ -9,29 +51,29 @@ class SimpleDataLoader:
         shuffle=False,
         drop_last=True,
         transform=None,
+        in_memory=False,
     ):
         self.dataset = dataset  # Note it is recommended to use with_format("numpy") for better performance
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
         self.transform = transform
+        self.in_memory = in_memory
 
-    def __iter__(self):
-        dataset = self.dataset
-        if self.shuffle:
-            dataset = dataset.shuffle()
+        if self.in_memory:
+            self.sampler = InMemorySampler(self)
+        else:
+            self.sampler = BatchSampler(self)
 
+    def __iter__(self) -> Iterator[tuple[Tensor, Tensor]]:
         i = 0
-        while i < len(dataset):
-            if self.drop_last and i + self.batch_size > len(dataset):
+        while i < len(self.dataset):
+            if self.drop_last and i + self.batch_size > len(self.dataset):
                 break
-            batch = dataset[i : i + self.batch_size]
-            if self.transform:
-                batch = self.transform(batch)
-            yield batch
+            yield self.sampler.sample(i)
             i += self.batch_size
 
-    def __len__(self):
+    def __len__(self) -> int:
         full = len(self.dataset) // self.batch_size
         return full if self.drop_last else full + (len(self.dataset) % self.batch_size != 0)
 
