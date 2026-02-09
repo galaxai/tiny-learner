@@ -38,6 +38,7 @@ Epoch:1 - Train Loss: 0.534: 100%|███████████████�
 - `loader.py`: SimpleDataLoader and DataLoaders for HF datasets.
 
 ### Future
+- [ ] replace Tensor.randint in inMemSampler with something like Tensor.randperm to ensure each datasample is used while keeping whole thing Jited. 
 - [ ] Loader supports num_workers
 - [ ] Multi-GPU support
 
