@@ -170,7 +170,7 @@ class Learner:
 
     @TinyJit
     @Tensor.train()
-    def _train_step(self, batch):
+    def _train_step(self, batch: tuple[Tensor, ...]):
         self.preds = self.model(*batch[: self.n_inputs])
         self.loss = self.loss_func(self.preds, *batch[self.n_inputs :])
         self.loss.backward()
@@ -180,7 +180,7 @@ class Learner:
 
     @TinyJit
     @Tensor.train(False)
-    def _valid_step(self, batch):
+    def _valid_step(self, batch: tuple[Tensor, ...]):
         self.preds = self.model(*batch[: self.n_inputs])
         self.loss = self.loss_func(self.preds, *batch[self.n_inputs :])
         return self.loss, self.preds

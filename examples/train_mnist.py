@@ -32,8 +32,7 @@ LR = 1e-3
 def main():
     ds = load_dataset("zalando-datasets/fashion_mnist")
     ds = ds.with_format("numpy")
-
-    dls = DataLoaders.from_dd(ds, BATCH_SIZE, transform=transforms)
+    dls = DataLoaders.from_dd(ds, BATCH_SIZE, transform=transforms, in_memory=True)
     model = TinyMLP()
 
     @TinyJit
@@ -42,7 +41,7 @@ def main():
 
     cbs = [TrainCB(), TqdmCB(), MetricsCB(accuracy=accuracy)]
     learn = Learner(model, dls, loss_func=loss_func, lr=LR, cbs=cbs)
-    learn.fit(1)
+    learn.fit(5)
 
 
 if __name__ == "__main__":
